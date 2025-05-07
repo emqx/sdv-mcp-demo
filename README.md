@@ -20,7 +20,7 @@ source .venv/bin/activate
 
 2. 天气信息关联
    - 基于行政区划信息
-   - 获取事件发生时刻的实时天气数据，这里采用的是 https://www.juhe.cn/ 的 API 服务，通过封装了 API 的 MCP Server 进行调用
+   - 获取事件发生时刻的实时天气数据，这里采用的通过封装第三方的 API 服务的 MCP Server 进行调用
 
 ## 报告生成
 - 整合处理后的数据（驾驶行为、位置、天气）
