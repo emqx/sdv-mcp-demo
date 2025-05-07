@@ -1,4 +1,4 @@
-# 安装依赖库，并激活虚拟环境
+# 环境安装
 ```bash
 uv sync
 uv venv
