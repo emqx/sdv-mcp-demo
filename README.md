@@ -1,3 +1,5 @@
+# 架构
+![](docs/arch.png)
 # 环境安装
 ```bash
 uv sync
