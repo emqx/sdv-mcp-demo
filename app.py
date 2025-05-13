@@ -1,8 +1,16 @@
+from contextlib import AsyncExitStack
 import os
-from typing import Any, Union
+import sys
+import time
+import anyio
+from typing import Any, Union, Tuple
 import logging
+import threading
 import traceback
 from dotenv import load_dotenv
+from urllib.parse import urlparse
+from mcp.client.mqtt import MqttTransportClient, MqttOptions
+from mcp.shared.mqtt import configure_logging
 
 from llama_index.core.workflow import (
     Event,
@@ -12,16 +20,17 @@ from llama_index.core.workflow import (
     step,
     Context,
 )
-
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.llms import ChatMessage, MessageRole 
 from llama_index.core.agent.workflow import (AgentWorkflow, AgentStream, ToolCallResult)
 from llama_index.llms.openai_like import OpenAILike
 from llama_index.llms.siliconflow import SiliconFlow
-
 from llama_index.tools.mcp import BasicMCPClient, McpToolSpec
 
 from util import load_system_prompt,load_json_prompt
+
+configure_logging(level="INFO")
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -30,30 +39,11 @@ def cprint(text: str, end: str = "", flush: bool = True):
     RESET = '\033[0m'
     print(f"{WORKFLOW_COLOR}{text}{RESET}", end=end, flush=flush)
 
-async def init_mcp_server():
-    project_path = os.path.abspath(os.path.dirname(__file__))
-    servers = [ 
-        {"command_or_url":f"uv", "args":["--directory", project_path, "run", f"weather.py"]},
-        {"command_or_url":f"uv", "args":["--directory", project_path, "run", f"vehicle.py"]},
-        {"command_or_url":f'https://mcp.amap.com/sse?key={os.getenv("GAODE_KEY")}', "args":[]},
-    ]
-    all_tools = []
-    for server in servers:
-        mcp_client = BasicMCPClient(
-            command_or_url=server["command_or_url"],
-            args=server["args"]
-        )
-        mcp_tool = McpToolSpec(client=mcp_client)
-        tools = await mcp_tool.to_tool_list_async()
-        all_tools.extend(tools)
-    return all_tools
-
 class ProgressEvent(Event):
     msg: str
 
 class ReportEvent(Event):
     msg: str
-
 
 class DriverBehaviorFlow(Workflow):
     def __init__(
@@ -67,11 +57,16 @@ class DriverBehaviorFlow(Workflow):
         self.memory = memory
         self.client = None
         self.llm = llm
+        send_stream, receive_stream = anyio.create_memory_object_stream()
+        self.server_discover_finish_snd = send_stream
+        self.server_discover_finish_rcv = receive_stream
+        self.mcp_servers = []
+        self.exit_stack: AsyncExitStack = AsyncExitStack()
         super().__init__(*args, **kwargs)
 
     @step
     async def process_input(self, ctx: Context, ev: StartEvent) -> Union[ReportEvent]:
-        self.all_tools = await init_mcp_server()
+        self.all_tools = await self.init_mcp_server()
         tools_name = [tool.metadata.name for tool in self.all_tools]
         # # Add event showing available tools
         ctx.write_event_to_stream(ProgressEvent(msg=f"Available tools: {tools_name}\n\n"))
@@ -96,7 +91,7 @@ class DriverBehaviorFlow(Workflow):
         response = ""
         async for event in handler.stream_events():
             if isinstance(event, AgentStream):
-                print(event.delta, end="", flush=True)
+                cprint(event.delta, end="", flush=True)
                 # ctx.write_event_to_stream(ProgressEvent(msg=event.delta))
                 response += event.delta
             elif isinstance(event, ToolCallResult):
@@ -120,6 +115,71 @@ class DriverBehaviorFlow(Workflow):
             response += token.delta
         return StopEvent(result=response)
 
+    async def on_mcp_server_discovered(self, client, server_name):
+        logger.info(f"Discovered {server_name}, connecting ...")
+        await client.initialize_mcp_server(server_name)
+
+    async def on_mcp_connect(self, client, server_name, connect_result):
+        success, _init_result = connect_result
+        self.mcp_servers.append({'server_name': server_name, 'success': success})
+        print(f"Server Names now: {self.mcp_servers}")
+        if len(self.mcp_servers) >= 2:
+            ## We stop the discovery if we have got at least 2 MCP/MQTT servers
+            logger.info("Now that got 2 MCP/MQTT servers, stop discovery.")
+            await self.server_discover_finish_snd.send('discovery_finished')
+
+    async def init_mcp_server(self):
+        servers = [ 
+            {"command_or_url":f"mqtt://broker.emqx.io:1883", "args":[]},
+            {"command_or_url":f'https://mcp.amap.com/sse?key={os.getenv("GAODE_KEY")}', "args":[]},
+        ]
+        all_tools = []
+        for server in servers:
+            command_or_url = server["command_or_url"]
+            if command_or_url.startswith("mqtt"):
+                ParsedUrl = urlparse(command_or_url)
+                hostname = ParsedUrl.hostname
+                port = ParsedUrl.port
+                mqtt_client = await self.exit_stack.enter_async_context(
+                    MqttTransportClient(
+                        "test_client",
+                        server_name_filter = 'sdv/#',
+                        auto_connect_to_mcp_server = True,
+                        on_mcp_server_discovered = self.on_mcp_server_discovered,
+                        on_mcp_connect = self.on_mcp_connect,
+                        mqtt_options = MqttOptions(
+                            host = hostname,
+                            port = port,
+                        )
+                    )
+                )
+                mqtt_client.start()
+                async with self.server_discover_finish_rcv:
+                    async for item in self.server_discover_finish_rcv:
+                        if item == 'discovery_finished':
+                            break
+                for server in self.mcp_servers:
+                    if not server['success']:
+                        logger.error(f"Failed to initalize with MCP server: {server['server_name']}")
+                        sys.exit(1)
+                    logger.info(f"Initalized with MCP/MQTT server: {server['server_name']}")
+                    mcp_client = mqtt_client.get_session(server['server_name'])
+                    if mcp_client is None:
+                        logger.error(f"Failed to get session for {server['server_name']}")
+                        sys.exit(1)
+                    mcp_tool = McpToolSpec(client=mcp_client)
+                    tools = await mcp_tool.to_tool_list_async()
+                    all_tools.extend(tools)
+            else:
+                mcp_client = BasicMCPClient(
+                    command_or_url = command_or_url,
+                    args = server["args"]
+                )
+                mcp_tool = McpToolSpec(client=mcp_client)
+                tools = await mcp_tool.to_tool_list_async()
+                all_tools.extend(tools)
+        return all_tools
+
 async def main():
     try:
         llm = SiliconFlow(api_key=os.getenv("SFAPI_KEY"),model=os.getenv("MODEL_NAME"),temperature=0.2,max_tokens=4000, timeout=180)
@@ -140,5 +200,4 @@ async def main():
         raise
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    anyio.run(main)

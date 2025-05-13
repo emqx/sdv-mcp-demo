@@ -1,7 +1,14 @@
 from mcp.server.fastmcp import FastMCP
 from util import query_driver_behavior_data
 
-mcp = FastMCP("Vehicle data query tools")
+mcp = FastMCP(
+    name = "sdv/devices/vehicle",
+    log_level="DEBUG",
+    mqtt_server_description = "An MCP server that contains tools to query vehicle driving behavior data.",
+    mqtt_options={
+        "host": "broker.emqx.io",
+    }
+)
 
 @mcp.tool()
 async def query_vehicle_driving_behaviour_data(vehicle_id: str) -> str:
@@ -39,4 +46,4 @@ async def query_vehicle_driving_behaviour_data(vehicle_id: str) -> str:
 
 if __name__ == "__main__":
     # Initialize and run the server
-    mcp.run(transport='stdio')
+    mcp.run(transport='mqtt')

@@ -1,7 +1,14 @@
 from mcp.server.fastmcp import FastMCP
 from util import query_city_id,query_province_id,query_weather_by_city_id
 
-mcp = FastMCP("weather history query tools")
+mcp = FastMCP(
+    name = "sdv/system_tools/weather",
+    log_level="DEBUG",
+    mqtt_server_description = "An MCP server that contains tools to query weather data.",
+    mqtt_options={
+        "host": "broker.emqx.io",
+    }
+)
 
 @mcp.tool()
 async def query_by_province_id(province: str) -> str:
@@ -56,4 +63,4 @@ async def query_history_weather_by_city_id_and_date(city_id:str, date_to_query:s
 
 if __name__ == "__main__":
     # Initialize and run the server
-    mcp.run(transport='stdio')
+    mcp.run(transport='mqtt')

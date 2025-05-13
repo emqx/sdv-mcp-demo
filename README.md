@@ -1,21 +1,17 @@
 # 架构
-![](docs/arch.png)
-# 环境安装
-```bash
-uv sync
-uv venv
 
-source .venv/bin/activate
-```
+![](docs/arch.png)
 
 # 应用流程说明
 
 ## 数据采集
+
 - 获取车辆驾驶行为数据（[示例数据](./data/vehicle_00001.json)）
   - 开发环境：使用模拟数据
   - 生产环境：由 sdv-flow 实时生成并存储在车辆本地
 
 ## 数据处理
+
 1. 位置信息解析
    - 提取驾驶行为数据中的经纬度坐标
    - 通过高德 MCP 服务解析对应的行政区划信息
@@ -25,24 +21,54 @@ source .venv/bin/activate
    - 获取事件发生时刻的实时天气数据，这里采用的通过封装第三方的 API 服务的 MCP Server 进行调用
 
 ## 报告生成
+
 - 整合处理后的数据（驾驶行为、位置、天气）
 - 利用大模型分析并生成 UBI（基于使用的保险）驾驶行为报告
 
 # 运行
+
 ## 创建本地 .env 文件
+
 ```bash
-# https://www.juhe.cn/docs/api/id/277
+# You could get the JuHe API key at https://www.juhe.cn/docs/api/id/277
 JUHE_API_KEY=
-# https://lbs.amap.com/api/mcp-server/gettingstarted
+
+# You could get the GaoDe API key at https://lbs.amap.com/api/mcp-server/create-project-and-key
 GAODE_KEY=
 
 # Silicon Flow API
 SFAPI_KEY=
+
+# Model Name
 MODEL_NAME=Pro/deepseek-ai/DeepSeek-V3
 ```
-## 执行
+
+## 初始化环境
+
 ```bash
- uv run app.py
+uv sync
+
+source .venv/bin/activate
+```
+
+## 执行
+
+### 运行天气 MCP 服务端
+
+```bash
+uv run weather.py
+```
+
+### 运行车辆驾驶行为分析 MCP 服务端
+
+```bash
+uv run vehicle.py
+```
+
+### 运行报告生成脚本
+
+```bash
+uv run app.py
 ```
 
 以下为执行 `app.py` 之后生成的样例报告。
