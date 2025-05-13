@@ -6,7 +6,7 @@ mcp = FastMCP(
     log_level="DEBUG",
     mqtt_server_description = "An MCP server that contains tools to query weather data.",
     mqtt_options={
-        "host": "localhost",
+        "host": "broker.emqx.io",
     }
 )
 
