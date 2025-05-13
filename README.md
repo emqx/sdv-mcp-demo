@@ -2,15 +2,6 @@
 
 ![](docs/arch.png)
 
-# 环境安装
-
-```bash
-uv sync
-uv venv
-
-source .venv/bin/activate
-```
-
 # 应用流程说明
 
 ## 数据采集
@@ -52,7 +43,29 @@ SFAPI_KEY=
 MODEL_NAME=Pro/deepseek-ai/DeepSeek-V3
 ```
 
+## 初始化环境
+
+```bash
+uv sync
+
+source .venv/bin/activate
+```
+
 ## 执行
+
+### 运行天气 MCP 服务端
+
+```bash
+uv run weather.py
+```
+
+### 运行车辆驾驶行为分析 MCP 服务端
+
+```bash
+uv run vehicle.py
+```
+
+### 运行报告生成脚本
 
 ```bash
 uv run app.py

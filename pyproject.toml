@@ -22,7 +22,10 @@ dependencies = [
 	"sse-starlette>=2.2.1",
 	"uvicorn>=0.34.1",
 	"torch==2.2.2",
-	"mcp[cli]>=1.7.1",
+	"mcp[cli]",
 	"httpx>=0.28.1",
 	"llama-index-tools-mcp>=0.1.2",
 ]
+
+[tool.uv.sources]
+mcp = { git = "https://github.com/emqx/mcp-python-sdk", branch = "main" }
