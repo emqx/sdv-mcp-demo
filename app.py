@@ -1,7 +1,6 @@
-from contextlib import AsyncExitStack
 import os
 import anyio
-from typing import Any, Union, Tuple
+from typing import Union
 import logging
 import traceback
 from dotenv import load_dotenv
@@ -107,7 +106,7 @@ class DriverBehaviorFlow(Workflow):
 
     async def init_mcp_server(self):
         servers = [ 
-            {"command_or_url":f"mqtt://{os.getenv('MQTT_BROKER')}:1883", "args":[]},
+            {"command_or_url":f"mqtt://{os.getenv('MQTT_BROKER', 'localhost')}:1883", "args":[]},
             {"command_or_url":f'https://mcp.amap.com/sse?key={os.getenv("GAODE_KEY")}', "args":[]},
         ]
         all_tools = []
@@ -115,14 +114,16 @@ class DriverBehaviorFlow(Workflow):
             command_or_url = server["command_or_url"]
             if command_or_url.startswith("mqtt"):
                 mqtt_mcp_client = MQTTMCPClient(
-                    command_or_url=command_or_url,
-                    client_id="test_client",
+                    uri=command_or_url,
+                    client_desc="sdv app",
                     server_name_filter="sdv/#",
-                    server_counts=2
+                    max_servers_to_discover=2
                 )
-                mcp_tool = McpToolSpec(client=mqtt_mcp_client)
-                tools = await mcp_tool.to_tool_list_async()
-                all_tools.extend(tools)
+                client_sessions = await mqtt_mcp_client.connect()
+                for session in client_sessions:
+                    mcp_tool = McpToolSpec(client=session)
+                    tools = await mcp_tool.to_tool_list_async()
+                    all_tools.extend(tools)
             else:
                 mcp_client = BasicMCPClient(
                     command_or_url = command_or_url,
