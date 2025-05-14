@@ -10,7 +10,7 @@ mcp = FastMCP(
     log_level="DEBUG",
     mqtt_server_description = "An MCP server that contains tools to query vehicle driving behavior data.",
     mqtt_options={
-        "host": os.getenv('MQTT_BROKER'),
+        "host": os.getenv('MQTT_BROKER', 'localhost'),
     }
 )
 
