@@ -1,12 +1,14 @@
 from mcp.server.fastmcp import FastMCP
 from util import query_city_id,query_province_id,query_weather_by_city_id
+from dotenv import load_dotenv
+import os
 
 mcp = FastMCP(
     name = "sdv/system_tools/weather",
     log_level="DEBUG",
     mqtt_server_description = "An MCP server that contains tools to query weather data.",
     mqtt_options={
-        "host": "broker.emqx.io",
+        "host": os.getenv('MQTT_BROKER'),
     }
 )
 

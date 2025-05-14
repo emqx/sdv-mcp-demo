@@ -1,12 +1,16 @@
 from mcp.server.fastmcp import FastMCP
 from util import query_driver_behavior_data
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 mcp = FastMCP(
     name = "sdv/devices/vehicle",
     log_level="DEBUG",
     mqtt_server_description = "An MCP server that contains tools to query vehicle driving behavior data.",
     mqtt_options={
-        "host": "broker.emqx.io",
+        "host": os.getenv('MQTT_BROKER'),
     }
 )
 

@@ -41,6 +41,9 @@ SFAPI_KEY=
 
 # Model Name
 MODEL_NAME=Pro/deepseek-ai/DeepSeek-V3
+
+# MQTT broker address
+MQTT_BROKER=127.0.0.1
 ```
 
 ## 初始化环境
