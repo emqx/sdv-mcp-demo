@@ -130,7 +130,7 @@ class DriverBehaviorFlow(Workflow):
 
     async def init_mcp_server(self):
         servers = [ 
-            {"command_or_url":f"mqtt://{os.getenv('MQTT_BROKER')}:1883", "args":[]},
+            {"command_or_url":f"mqtt://{os.getenv('MQTT_BROKER', 'localhost')}:1883", "args":[]},
             {"command_or_url":f'https://mcp.amap.com/sse?key={os.getenv("GAODE_KEY")}', "args":[]},
         ]
         all_tools = []
