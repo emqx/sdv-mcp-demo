@@ -56,25 +56,25 @@ source .venv/bin/activate
 
 ## Execution
 
-### Start emqx
+- Start emqx
 
 ```bash
 docker run -d --name emqx -p 1883:1883 -p 8083:8083 -p 8084:8084 -p 8883:8883 -p 18083:18083 emqx/emqx:latest
 ```
 
-### Run Weather MCP Server
+- Run Weather MCP Server
 
 ```bash
 uv run weather.py
 ```
 
-### Run Vehicle Driving Behavior Analysis MCP Server
+- Run Vehicle Driving Behavior Analysis MCP Server
 
 ```bash
 uv run vehicle.py
 ```
 
-### Run Report Generation Script
+- Run Report Generation Script
 
 ```bash
 uv run app.py
